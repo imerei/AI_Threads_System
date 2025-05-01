@@ -1,0 +1,17 @@
+# ethical_policy.yaml - defines disallowed topics and keywords for content
+banned_topics:
+  - politics
+  - religion_extremism
+  - self-harm
+  - illegal_activity
+  - adult_content
+
+banned_keywords:
+  - violence
+  - gore
+  - drug
+  - gamble
+  - hate
+  - kill
+  - porn
+  - scam

@@ -1,6 +1,5 @@
 # agents/seo_agent.py
 
-import time
 from openai import OpenAI
 from utils.gpt_parser import safe_request
 
@@ -34,6 +33,5 @@ class SEOAgent:
             if len(text) > self.max_length:
                 text = text[: self.max_length -1] + "…"
             optimized.append(text)
-            time.sleep(20)
         return optimized
 

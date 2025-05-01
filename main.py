@@ -23,31 +23,32 @@ USER_DATA_DIR = "playwright_profile"
 
 
 def run_pipeline(visualizer, client, cfg):
-    # 1) Trends
+    # 1) Trends: fetch and select top topic
     visualizer.update_progress(
         "TrendAgent", 0, "Starting…", message="Beginning trend fetch"
     )
-    topics = TrendAgent(client).fetch_trending_topics()
+    top_list = TrendAgent(client).get_top_topics()  # returns [top_topic]
+    top_topic = top_list[0] if top_list else ""
     visualizer.update_progress(
         "TrendAgent",
         100,
         "Trends fetched",
-        message=f"Fetched topics: {topics}"
+        message=f"Fetched topic: {top_topic}"
     )
 
-    # 2) Draft content
+    # 2) Content: draft single post
     visualizer.update_progress(
         "ContentAgent", 0, "Starting…", message="Beginning content draft"
     )
-    drafts = ContentAgent(client).create_posts(topics)
+    drafts = ContentAgent(client).create_posts(top_topic)
     visualizer.update_progress(
         "ContentAgent",
         100,
-        "Drafts ready",
-        message=f"Drafted posts: {drafts}"
+        "Draft ready",
+        message=f"Drafted post: {drafts[0]}"
     )
 
-    # 3) SEO optimization
+    # 3) SEO: optimize draft
     visualizer.update_progress(
         "SEOAgent", 0, "Starting…", message="Beginning SEO optimization"
     )
@@ -59,7 +60,7 @@ def run_pipeline(visualizer, client, cfg):
         message=f"Optimized posts: {optimized}"
     )
 
-    # 4) Ethics check
+    # 4) Ethics: final approval
     visualizer.update_progress(
         "EthicsAgent", 0, "Starting…", message="Beginning ethics review"
     )
@@ -72,6 +73,7 @@ def run_pipeline(visualizer, client, cfg):
     )
 
     return final_posts
+
 
 
 def post_to_threads(posts, cfg, headless=False):

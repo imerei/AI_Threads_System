@@ -17,4 +17,8 @@ def load_config():
     policy_file = os.getenv("ETHICAL_POLICY_FILE", "ethical_policy.yaml")
     with open(policy_file, 'r') as f:
         config['policy'] = yaml.safe_load(f)
+    # Load list of words to avoid
+    avoided_words = os.getenv("AVOIDED_WORDS", "avoided_words.yaml")
+    with open(avoided_words, 'r') as f:
+        config['wack_words'] = yaml.safe_load(f)
     return config

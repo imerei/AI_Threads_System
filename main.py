@@ -22,12 +22,18 @@ STORAGE_STATE = "storageState.json"
 USER_DATA_DIR = "playwright_profile"
 
 
-def run_pipeline(visualizer, client, cfg, on_complete):
+def run_pipeline(visualizer, client, banned_phrases, cfg, on_complete):
+    # Initialize agents
+    trend_agent = TrendAgent(client)
+    content_agent = ContentAgent(client, banned_phrases)
+    seo_agent = SEOAgent(client, banned_phrases)
+    ethics_agent = EthicsAgent()
+
     # 1) Trends: fetch and select top topic
     visualizer.update_progress(
         "TrendAgent", 0, "Starting…", message="Beginning trend fetch"
     )
-    top_list = TrendAgent(client).get_top_topics()
+    top_list = trend_agent.get_top_topics()
     top_topic = top_list[0] if top_list else ""
     visualizer.update_progress(
         "TrendAgent",
@@ -40,7 +46,7 @@ def run_pipeline(visualizer, client, cfg, on_complete):
     visualizer.update_progress(
         "ContentAgent", 0, "Starting…", message="Beginning content draft"
     )
-    drafts = ContentAgent(client).create_posts(top_topic)
+    drafts = content_agent.create_posts(top_topic)
     draft_post = drafts[0] if drafts else ""
     visualizer.update_progress(
         "ContentAgent",
@@ -53,7 +59,7 @@ def run_pipeline(visualizer, client, cfg, on_complete):
     visualizer.update_progress(
         "SEOAgent", 0, "Starting…", message="Beginning SEO optimization"
     )
-    optimized = SEOAgent(client).optimize_posts(drafts)
+    optimized = seo_agent.optimize_posts(drafts)
     optimized_post = optimized[0] if optimized else ""
     visualizer.update_progress(
         "SEOAgent",
@@ -66,7 +72,7 @@ def run_pipeline(visualizer, client, cfg, on_complete):
     visualizer.update_progress(
         "EthicsAgent", 0, "Starting…", message="Beginning ethics review"
     )
-    final_posts = EthicsAgent().filter_posts(optimized)
+    final_posts = ethics_agent.filter_posts(optimized)
     final_post = final_posts[0] if final_posts else ""
     visualizer.update_progress(
         "EthicsAgent",
@@ -116,12 +122,11 @@ def post_to_threads(posts, cfg, headless=False):
             context.storage_state(path=STORAGE_STATE)
 
         # 3) Use the logged-in session to post each thread
-        for content in posts:
-            page.wait_for_timeout(5000)
-            page.get_by_text("What's new?").click()
-            page.get_by_role('textbox', name="Empty text field. Type to compose a new post.").fill(content)
-            page.get_by_role(role="button", name="Post").click()
-            time.sleep(2)
+        page.wait_for_timeout(5000)
+        page.get_by_text("What's new?").click()
+        page.get_by_role('textbox', name="Empty text field. Type to compose a new post.").fill(posts)
+        page.get_by_role(role="button", name="Post").click()
+        time.sleep(5)
 
         context.close()
 
@@ -130,6 +135,7 @@ def main():
     # Load configuration and OpenAI client
     cfg = load_config()
     client = cfg["openai_client"]
+    banned = cfg.get("banned_phrases", [])
 
     # Initialize visualizer UI
     agents = ["TrendAgent", "ContentAgent", "SEOAgent", "EthicsAgent"]
@@ -161,7 +167,7 @@ def main():
         visualizer.update_progress(
             "ContentAgent", 0, "Redoing content…", message="User requested redo"
         )
-        drafts = ContentAgent(client).create_posts(topic)
+        drafts = ContentAgent(client, banned).create_posts(topic)
         draft_post = drafts[0] if drafts else ""
         visualizer.update_progress(
             "ContentAgent", 100, "Draft ready", message=f"Redrafted post: {draft_post}"
@@ -170,7 +176,7 @@ def main():
         visualizer.update_progress(
             "SEOAgent", 0, "Re-optimizing…", message="Redo SEO optimization"
         )
-        optimized = SEOAgent(client).optimize_posts(drafts)
+        optimized = SEOAgent(client, banned).optimize_posts(drafts)
         optimized_post = optimized[0] if optimized else ""
         visualizer.update_progress(
             "SEOAgent", 100, "Optimized", message=f"Re-optimized post: {optimized_post}"
@@ -192,7 +198,7 @@ def main():
     # Start pipeline in background
     threading.Thread(
         target=run_pipeline,
-        args=(visualizer, client, cfg, on_pipeline_complete),
+        args=(visualizer, client, banned, cfg, on_pipeline_complete),
         daemon=True
     ).start()
 

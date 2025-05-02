@@ -22,12 +22,12 @@ STORAGE_STATE = "storageState.json"
 USER_DATA_DIR = "playwright_profile"
 
 
-def run_pipeline(visualizer, client, cfg):
+def run_pipeline(visualizer, client, cfg, on_complete):
     # 1) Trends: fetch and select top topic
     visualizer.update_progress(
         "TrendAgent", 0, "Starting…", message="Beginning trend fetch"
     )
-    top_list = TrendAgent(client).get_top_topics()  # returns [top_topic]
+    top_list = TrendAgent(client).get_top_topics()
     top_topic = top_list[0] if top_list else ""
     visualizer.update_progress(
         "TrendAgent",
@@ -41,11 +41,12 @@ def run_pipeline(visualizer, client, cfg):
         "ContentAgent", 0, "Starting…", message="Beginning content draft"
     )
     drafts = ContentAgent(client).create_posts(top_topic)
+    draft_post = drafts[0] if drafts else ""
     visualizer.update_progress(
         "ContentAgent",
         100,
         "Draft ready",
-        message=f"Drafted post: {drafts[0]}"
+        message=f"Drafted post: {draft_post}"
     )
 
     # 3) SEO: optimize draft
@@ -53,11 +54,12 @@ def run_pipeline(visualizer, client, cfg):
         "SEOAgent", 0, "Starting…", message="Beginning SEO optimization"
     )
     optimized = SEOAgent(client).optimize_posts(drafts)
+    optimized_post = optimized[0] if optimized else ""
     visualizer.update_progress(
         "SEOAgent",
         100,
         "Optimized",
-        message=f"Optimized posts: {optimized}"
+        message=f"Optimized post: {optimized_post}"
     )
 
     # 4) Ethics: final approval
@@ -65,14 +67,16 @@ def run_pipeline(visualizer, client, cfg):
         "EthicsAgent", 0, "Starting…", message="Beginning ethics review"
     )
     final_posts = EthicsAgent().filter_posts(optimized)
+    final_post = final_posts[0] if final_posts else ""
     visualizer.update_progress(
         "EthicsAgent",
         100,
         "Approved",
-        message=f"Final approved posts: {final_posts}"
+        message=f"Final approved post: {final_post}"
     )
 
-    return final_posts
+    # Once pipeline is complete, invoke the callback with the final post
+    on_complete(final_post, top_topic)
 
 
 
@@ -123,30 +127,75 @@ def post_to_threads(posts, cfg, headless=False):
 
 
 def main():
-    # Load config and initialize the OpenAI client
-    cfg    = load_config()
+    # Load configuration and OpenAI client
+    cfg = load_config()
     client = cfg["openai_client"]
 
-    # Set up the visualizer UI with all four agents
+    # Initialize visualizer UI
     agents = ["TrendAgent", "ContentAgent", "SEOAgent", "EthicsAgent"]
     visualizer = AgentVisualizer(agents)
 
-    # Run the pipeline in a background thread so the UI remains responsive
-    def pipeline_thread():
-        final_posts = run_pipeline(visualizer, client, cfg)
-        if final_posts:
-            post_to_threads(final_posts, cfg)
-        else:
-            visualizer.update_progress(
-                "EthicsAgent",
-                100,
-                "No posts to send",
-                message="All content was filtered out; nothing to post."
-            )
+    # Callback when pipeline finishes or redo is triggered
+    def on_pipeline_complete(final_post, topic):
+        # Store for redo
+        visualizer.current_topic = topic
+        visualizer.current_post = final_post
+        # Show control buttons
+        visualizer.show_redo_button(lambda: on_redo(topic))
+        visualizer.show_accept_button(lambda: on_accept(final_post))
 
-    threading.Thread(target=pipeline_thread, daemon=True).start()
+    # Accept handler
+    def on_accept(post):
+        visualizer.disable_accept_button()
+        visualizer.disable_redo_button()
+        visualizer.update_progress(
+            "EthicsAgent", 100, "User accepted post", message="Post accepted for publishing"
+        )
+        post_to_threads(post, cfg, headless=False)
 
-    # Launch the Tkinter event loop
+    # Redo handler: regenerate content and re-run SEO and Ethics
+    def on_redo(topic):
+        visualizer.disable_accept_button()
+        visualizer.disable_redo_button()
+        # 2) Regenerate content
+        visualizer.update_progress(
+            "ContentAgent", 0, "Redoing content…", message="User requested redo"
+        )
+        drafts = ContentAgent(client).create_posts(topic)
+        draft_post = drafts[0] if drafts else ""
+        visualizer.update_progress(
+            "ContentAgent", 100, "Draft ready", message=f"Redrafted post: {draft_post}"
+        )
+        # 3) SEO
+        visualizer.update_progress(
+            "SEOAgent", 0, "Re-optimizing…", message="Redo SEO optimization"
+        )
+        optimized = SEOAgent(client).optimize_posts(drafts)
+        optimized_post = optimized[0] if optimized else ""
+        visualizer.update_progress(
+            "SEOAgent", 100, "Optimized", message=f"Re-optimized post: {optimized_post}"
+        )
+        # 4) Ethics
+        visualizer.update_progress(
+            "EthicsAgent", 0, "Re-reviewing…", message="Redo ethics review"
+        )
+        final_posts = EthicsAgent().filter_posts(optimized)
+        final_post = final_posts[0] if final_posts else ""
+        visualizer.update_progress(
+            "EthicsAgent", 100, "Approved",
+            message=f"Final approved post: {final_post}"
+        )
+        # Show buttons again
+        visualizer.show_redo_button(lambda: on_redo(topic))
+        visualizer.show_accept_button(lambda: on_accept(final_post))
+
+    # Start pipeline in background
+    threading.Thread(
+        target=run_pipeline,
+        args=(visualizer, client, cfg, on_pipeline_complete),
+        daemon=True
+    ).start()
+
     visualizer.mainloop()
 
 

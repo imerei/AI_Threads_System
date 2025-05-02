@@ -27,6 +27,11 @@ class AgentVisualizer(tk.Tk):
         self.active_agent = None       # name of agent currently animating
         self.log_queue = queue.Queue() # Thread-safe queue for log messages
 
+        # Accept button (hidden until needed)
+        self.button_frame = None
+        self.accept_button = None
+        self.redo_button = None
+
         # Build UI and start loops
         self._build_ui(agents, pixel_size)
         self.after(log_poll_interval, self._poll_log_queue)
@@ -136,3 +141,55 @@ class AgentVisualizer(tk.Tk):
                 lbl.image = img
         # schedule next animation tick
         self.after(self.anim_interval, self._animate)
+
+    def _ensure_button_frame(self):
+        """
+        Create a container frame for Accept and Redo buttons if not existing.
+        """
+        if self.button_frame is None:
+            self.button_frame = tk.Frame(self)
+            self.button_frame.pack(pady=(0, 10))
+
+    def show_accept_button(self, callback):
+        """
+        Display an Accept button. Invokes callback when clicked.
+        """
+        self._ensure_button_frame()
+        # Remove existing, to ensure fresh pack
+        if self.accept_button:
+            self.accept_button.destroy()
+        self.accept_button = tk.Button(
+            self.button_frame, text="Accept Post", command=callback
+        )
+        # pack to the right
+        self.accept_button.pack(side=tk.RIGHT, padx=(5, 0))
+
+    def disable_accept_button(self):
+        """
+        Disable and hide the Accept button after user click.
+        """
+        if self.accept_button:
+            self.accept_button.destroy()
+            self.accept_button = None
+
+    def show_redo_button(self, callback):
+        """
+        Display a Redo button to the left of Accept. Invokes callback when clicked.
+        """
+        self._ensure_button_frame()
+        # Remove existing, to ensure fresh pack
+        if self.redo_button:
+            self.redo_button.destroy()
+        self.redo_button = tk.Button(
+            self.button_frame, text="Redo Post", command=callback
+        )
+        # pack to the left
+        self.redo_button.pack(side=tk.LEFT, padx=(0, 5))
+
+    def disable_redo_button(self):
+        """
+        Disable and hide the Redo button after use.
+        """
+        if self.redo_button:
+            self.redo_button.destroy()
+            self.redo_button = None

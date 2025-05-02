@@ -42,7 +42,7 @@ class TrendAgent:
             model="gpt-4o-mini",
             fallback_model="gpt-3.5-turbo",
             max_retries=5,
-            input="Find the current top 5 trending anime topics",
+            input="Find the current top 5 trending anime topics. Ignore any topic related to voting links",
             tools=[{"type": "web_search"}]
         )
 

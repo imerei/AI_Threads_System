@@ -4,9 +4,8 @@ from openai import OpenAI
 from utils.gpt_parser import safe_request
 
 class SEOAgent:
-    def __init__(self, client: OpenAI, max_length: int = 280):
+    def __init__(self, client: OpenAI):
         self.client = client
-        self.max_length = max_length
         self.system_instruction = (
             "You are an SEO expert and copywriter specializing in concise social media posts."
             " Take the user-provided draft and reword it so that:"

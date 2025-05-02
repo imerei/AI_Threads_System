@@ -196,11 +196,42 @@ def main():
         visualizer.show_accept_button(lambda: on_accept(final_post))
 
     # Start pipeline in background
-    threading.Thread(
-        target=run_pipeline,
-        args=(visualizer, client, banned, cfg, on_pipeline_complete),
-        daemon=True
-    ).start()
+    #threading.Thread(
+    #    target=run_pipeline,
+    #    args=(visualizer, client, banned, cfg, on_pipeline_complete),
+    #    daemon=True
+    #).start()
+
+    # Manual Run handler
+    def on_manual_run():
+        visualizer.disable_manual_run_button()
+        visualizer.disable_auto_run_button()
+        threading.Thread(
+            target=run_pipeline,
+            args=(visualizer, client, banned, cfg, on_pipeline_complete),
+            daemon=True
+        ).start()
+
+    # Auto Run handler: runs pipeline and posts without user intervention
+    def on_auto_run():
+        visualizer.disable_manual_run_button()
+        visualizer.disable_auto_run_button()
+
+        def pipeline_and_post():
+            final_posts = []
+
+            def auto_complete(fp, _):
+                final_posts.append(fp)
+
+            run_pipeline(visualizer, client, banned, cfg, auto_complete)
+            if final_posts:
+                post_to_threads(final_posts[0], cfg, headless=True)
+
+        threading.Thread(target=pipeline_and_post, daemon=True).start()
+
+    # Only show run buttons; do not start pipeline until user clicks
+    visualizer.show_manual_run_button(on_manual_run)
+    visualizer.show_auto_run_button(on_auto_run)
 
     visualizer.mainloop()
 
